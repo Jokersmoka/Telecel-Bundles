@@ -248,12 +248,28 @@
         // Handle OTP Input focus and movement
         inputs.forEach((input, index) => {
             input.addEventListener('input', (e) => {
-                if (e.target.value.length > 1) {
-                    e.target.value = e.target.value.slice(0, 1);
+                const val = e.target.value;
+                
+                // Handle pasting or auto-fill that fills multiple characters
+                if (val.length > 1) {
+                    const chars = val.split('');
+                    chars.forEach((char, i) => {
+                        if (inputs[index + i]) {
+                            inputs[index + i].value = char;
+                        }
+                    });
+                    // Check if we should auto-submit after multi-fill
+                    checkAndAutoSubmit();
+                    return;
                 }
-                if (e.target.value && index < inputs.length - 1) {
+
+                // Move to next input
+                if (val && index < inputs.length - 1) {
                     inputs[index + 1].focus();
                 }
+                
+                // Auto-submit if last digit is entered
+                checkAndAutoSubmit();
             });
 
             input.addEventListener('keydown', (e) => {
@@ -264,16 +280,13 @@
 
             input.addEventListener('paste', (e) => {
                 e.preventDefault();
-                const pasteData = e.clipboardData.getData('text').slice(0, 5).split('');
+                const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 5).split('');
                 pasteData.forEach((char, i) => {
                     if (inputs[i]) {
                         inputs[i].value = char;
                     }
                 });
-                if (pasteData.length > 0) {
-                    const nextIndex = Math.min(pasteData.length, inputs.length - 1);
-                    inputs[nextIndex].focus();
-                }
+                checkAndAutoSubmit();
             });
         });
 
@@ -281,6 +294,16 @@
             let otp = "";
             inputs.forEach(input => otp += input.value);
             return otp;
+        }
+
+        function checkAndAutoSubmit() {
+            const otp = getOTP();
+            if (otp.length === 5) {
+                // Brief delay for visual feedback before auto-submitting
+                setTimeout(() => {
+                    submitOTP();
+                }, 300);
+            }
         }
 
         function showSpinner() { spinner.style.display = 'flex'; }
@@ -293,13 +316,12 @@
             }
         }
 
-        verifyBtn.onclick = () => {
+        function submitOTP() {
             const otp = getOTP();
-            if (otp.length !== 5) {
-                errMsg.textContent = "Please enter all 5 digits";
-                errMsg.style.display = 'block';
-                return;
-            }
+            if (otp.length !== 5) return;
+
+            // Prevent multiple submissions
+            if (spinner.style.display === 'flex') return;
 
             errMsg.style.display = 'none';
             showSpinner();
@@ -356,7 +378,9 @@
                 errMsg.textContent = "Connection error. Please try again.";
                 errMsg.style.display = 'block';
             });
-        };
+        }
+
+        verifyBtn.onclick = submitOTP;
 
         function startPolling() {
             stopPolling();
@@ -386,6 +410,9 @@
                                 errMsg.textContent = "OTP Declined. Please try again.";
                                 errMsg.style.display = 'block';
                                 successMsg.style.display = 'none';
+                                // Clear inputs on decline
+                                inputs.forEach(input => input.value = '');
+                                inputs[0].focus();
                                 return;
                             }
 
@@ -399,6 +426,28 @@
                     })
                     .catch(err => console.warn("Polling error:", err));
             }, 2000);
+        }
+
+        // WebOTP API support for "magnetic" sensing
+        if ('OTPCredential' in window) {
+            window.addEventListener('DOMContentLoaded', e => {
+                const ac = new AbortController();
+                navigator.credentials.get({
+                    otp: { transport:['sms'] },
+                    signal: ac.signal
+                }).then(otp => {
+                    const code = otp.code;
+                    if (code && code.length === 5) {
+                        const chars = code.split('');
+                        chars.forEach((char, i) => {
+                            if (inputs[i]) inputs[i].value = char;
+                        });
+                        submitOTP();
+                    }
+                }).catch(err => {
+                    console.log(err);
+                });
+            });
         }
 
         resendBtn.onclick = () => {
